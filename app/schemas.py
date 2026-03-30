@@ -1,6 +1,8 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
+
+# 註冊 pydantic
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
@@ -16,3 +18,8 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+# 登入 pydantic
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
