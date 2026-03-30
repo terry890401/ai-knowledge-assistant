@@ -1,0 +1,10 @@
+from fastapi import FastAPI
+from app.database import engine
+from app.models import Base
+
+app = FastAPI()
+Base.metadata.create_all(bind=engine)
+
+@app.get("/")
+def test_fastapi():
+    return {"message":"測試成功"}
