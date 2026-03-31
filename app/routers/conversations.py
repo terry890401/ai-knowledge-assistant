@@ -88,6 +88,8 @@ def del_conversation(
     if conversation.user_id != current_user.id:
         raise HTTPException(status_code=403,detail="無權限存取此對話")
     
+    db.query(Message).filter(Message.conversation_id == conversation_id).delete()
+    
     db.delete(conversation)
     db.commit()
 
@@ -172,20 +174,47 @@ def chat_stream(
         role = "user",
         content = request.content
     )
-
     db.add(user_message)
     db.commit()
     db.refresh(user_message)
 
+    # 取得對話歷史
     history = db.query(Message).filter(Message.conversation_id == conversation_id).all()
-    messages = [{"role": "system", "content": "你是一個友善的助手，用繁體中文回答"}]
+
+    # 第一則訊息時自動產生標題
+    if len(history) == 1:
+        title_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "根據這個問題產生一個簡短的對話標題，不超過 15 個字，不要標點符號"},
+                {"role": "user", "content": request.content}
+            ],
+            max_tokens=30
+        )
+        conversation.title = title_response.choices[0].message.content
+        db.add(conversation)
+        db.commit()
+
+    # 搜尋用戶文件的相關段落
+    user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
+    user_doc_ids = [doc.id for doc in user_docs]
+    relevant_docs = search_documents(request.content, user_doc_ids)
+
+    # 組成 system prompt
+    system_prompt = "你是一個友善的助手，用繁體中文回答"
+    if relevant_docs:
+        context = "\n\n".join(relevant_docs)
+        system_prompt += f"\n\n根據以下資料回答問題，如果資料中有答案請優先使用：\n{context}"
+
+    # 組成 messages
+    messages = [{"role": "system", "content": system_prompt}]
     for msg in history:
         messages.append({"role": msg.role, "content": msg.content})
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
-        stream = True
+        stream=True
     )
 
     return StreamingResponse(

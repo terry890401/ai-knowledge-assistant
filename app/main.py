@@ -1,4 +1,7 @@
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app.models import Base
 from app.routers import auth, conversations,documents
@@ -6,6 +9,13 @@ import logging
 import time
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Demo 用，允許所有來源
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,5 +37,11 @@ async def log_requests(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(conversations.router)
 app.include_router(documents.router)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 Base.metadata.create_all(bind=engine)
+
+@app.get("/", response_class=HTMLResponse)
+async def read_index():
+    with open("app/static/index.html", encoding="utf-8") as f:
+        return f.read()
