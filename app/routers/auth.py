@@ -23,7 +23,7 @@ def create_token(user_id: int) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
 # 註冊
-@router.post("/register", response_model=UserResponse)
+@router.post("/register", response_model=UserResponse, status_code=201)
 def register(user: UserRegister, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first():
         raise HTTPException(status_code=409,detail="此 email 已經被註冊")
