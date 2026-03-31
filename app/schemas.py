@@ -53,3 +53,6 @@ class ConversationDetailResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ChatRequest(BaseModel):
+    content: str
