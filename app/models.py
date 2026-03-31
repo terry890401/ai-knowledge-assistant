@@ -9,6 +9,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(100), nullable=False, unique=True)
     hashed_password = Column(String(255), nullable=False)
+    username = Column(String(100), nullable=True)
     created_at = Column(DateTime, default = lambda: datetime.now(timezone.utc)) #每次新增資料才執行，每筆資料有自己的時間
 
 class Conversation(Base):
