@@ -40,6 +40,9 @@ def add_document(document_id: int, text: str):
     )
 
 def search_documents(query: str, user_document_ids: list[int], n_results: int = 3) -> list[str]:
+    if not user_document_ids:
+        return []
+
     # 只搜尋這個用戶的文件
     results = collection.query(
         query_texts=[query],
