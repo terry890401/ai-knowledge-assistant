@@ -6,8 +6,11 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
-# 初始化 Chroma（存在硬碟）
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+chroma_client = chromadb.CloudClient(
+  api_key=os.getenv("CHROMA_API_KEY"),
+  tenant=os.getenv("CHROMA_TENANT"),
+  database=os.getenv("CHROMA_DATABASE")
+)
 
 # 使用 OpenAI embedding
 openai_ef = embedding_functions.OpenAIEmbeddingFunction(
