@@ -4,7 +4,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.schemas import DocumentResponse
 from app.models import Document
-from app.vector_store import add_document
+from app.vector_store import add_document, delete_document
 
 router = APIRouter(prefix="/documents", tags=["文件"])
 
@@ -40,5 +40,25 @@ def get_dcouments(
     current_user = Depends(get_current_user)
 ):
     document = db.query(Document).filter(Document.user_id == current_user.id).all()
-    
+
     return document
+
+# 刪除文件
+@router.delete("/{document_id}", status_code=204)
+def del_documents(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    document = db.query(Document).filter(Document.id == document_id).first()
+
+    if document is None:
+        raise HTTPException(status_code=404, detail="找不到該對話")
+    
+    if document.user_id != current_user.id:
+        raise HTTPException(status_code=403,detail="無權限存取此對話")
+    
+    db.delete(document)
+    db.commit()
+
+    delete_document(document_id)
