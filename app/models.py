@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
 from app.database import Base
 from datetime import datetime, timezone
 
@@ -18,6 +19,7 @@ class Conversation(Base):
     title = Column(String(200), default = "新對話")
     created_at = Column(DateTime, default = lambda: datetime.now(timezone.utc))
 
+    messages = relationship("Message", back_populates="conversation")
 class Message(Base):
     __tablename__ = "messages"
 
@@ -26,3 +28,5 @@ class Message(Base):
     role = Column(String(20), nullable=False) # user 或 assistant
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default = lambda: datetime.now(timezone.utc))
+
+    conversation = relationship("Conversation", back_populates="messages")
