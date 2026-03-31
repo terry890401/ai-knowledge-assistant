@@ -4,6 +4,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.schemas import DocumentResponse
 from app.models import Document
+from app.vector_store import add_document
 
 router = APIRouter(prefix="/documents", tags=["文件"])
 
@@ -26,5 +27,7 @@ async def upload_document(
     db.add(document)
     db.commit()
     db.refresh(document)
+
+    add_document(document.id, text)
 
     return document

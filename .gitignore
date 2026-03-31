@@ -208,3 +208,6 @@ __marimo__/
 
 # test
 test.txt
+
+# chroma_db
+chroma_db/
