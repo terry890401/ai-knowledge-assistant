@@ -46,3 +46,21 @@ def get_conversation_detail(
         raise HTTPException(status_code=403,detail="無權限存取此對話")
     
     return conversation
+
+# 刪除對話
+@router.delete("/{conversation_id}",status_code=204)
+def del_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    conversation = conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="找不到該對話")
+    
+    if conversation.user_id != current_user.id:
+        raise HTTPException(status_code=403,detail="無權限存取此對話")
+    
+    db.delete(conversation)
+    db.commit()
