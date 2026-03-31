@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 from app.schemas import ConversationCreate, ConversationResponse, ConversationDetailResponse, ChatRequest, MessageResponse
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import Conversation, Message
+from app import models
+from app.models import Conversation, Message, Document
+from app.vector_store import search_documents
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -109,13 +111,26 @@ def chat(
         role = "user",
         content = request.content
     )
-
     db.add(user_message)
     db.commit()
     db.refresh(user_message)
 
+    # 取得對話歷史
     history = db.query(Message).filter(Message.conversation_id == conversation_id).all()
-    messages = [{"role": "system", "content": "你是一個友善的助手，用繁體中文回答"}]
+
+    # 搜尋用戶文件的相關段落
+    user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
+    user_doc_ids = [doc.id for doc in user_docs]
+    relevant_docs = search_documents(request.content, user_doc_ids)
+
+    # 組成 system prompt（有相關文件就加進去）
+    system_prompt = "你是一個友善的助手，用繁體中文回答"
+    if relevant_docs:
+        context = "\n\n".join(relevant_docs)
+        system_prompt += f"\n\n根據以下資料回答問題，如果資料中有答案請優先使用：\n{context}"
+
+    # 組成 messages
+    messages = [{"role": "system", "content": system_prompt}]
     for msg in history:
         messages.append({"role": msg.role, "content": msg.content})
 
