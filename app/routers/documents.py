@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -8,6 +8,7 @@ from app.vector_store import add_document
 
 router = APIRouter(prefix="/documents", tags=["文件"])
 
+# 上傳文件
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
@@ -30,4 +31,14 @@ async def upload_document(
 
     add_document(document.id, text)
 
+    return document
+
+# 取得文件
+@router.get("/",response_model=list[DocumentResponse])
+def get_dcouments(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    document = db.query(Document).filter(Document.user_id == current_user.id).all()
+    
     return document
