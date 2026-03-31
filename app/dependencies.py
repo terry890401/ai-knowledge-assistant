@@ -12,6 +12,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 bearer_scheme = HTTPBearer()
 
+# 驗證 token 並回傳目前登入的用戶，需要登入的 API 都用 Depends(get_current_user)
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db)
@@ -24,7 +25,7 @@ def get_current_user(
         if user_id is None:
             raise credentials_exception
     except JWTError:
-            raise credentials_exception
+        raise credentials_exception
 
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
