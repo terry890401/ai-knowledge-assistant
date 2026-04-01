@@ -43,6 +43,12 @@ def test_login_success():
 
 # 測試錯誤密碼
 def test_login_wrong_password():
+    # 先確保帳號存在
+    client.post("/auth/register", json={
+        "email": "pytest_test@test.com",
+        "password": "testpassword123"
+    })
+    # 用錯誤密碼登入
     response = client.post("/auth/login", json={
         "email": "pytest_test@test.com",
         "password": "wrongpassword"
