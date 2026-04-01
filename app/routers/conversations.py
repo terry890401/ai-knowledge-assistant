@@ -6,7 +6,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app import models
 from app.models import Conversation, Message, Document
-from app.vector_store import search_documents
+from app.vector_store import search_documents, hybrid_search
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from openai import OpenAI
@@ -128,13 +128,16 @@ def chat(
     # 搜尋用戶文件的相關段落
     user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
     user_doc_ids = [doc.id for doc in user_docs]
-    relevant_docs = search_documents(request.content, user_doc_ids)
+    relevant_docs = hybrid_search(request.content, user_doc_ids)
 
     # 組成 system prompt（有相關文件就加進去）
     system_prompt = "你是一個友善的助手，用繁體中文回答"
     if relevant_docs:
-        context = "\n\n".join(relevant_docs)
-        system_prompt += f"\n\n根據以下資料回答問題，如果資料中有答案請優先使用：\n{context}"
+        context = "\n\n".join([
+            f"[來源：{d['filename']}]\n{d['content']}"
+            for d in relevant_docs
+        ])
+        system_prompt += f"\n\n根據以下資料回答問題，如果資料中有答案請優先使用，並告知來源：\n{context}"
 
     # 組成 messages
     messages = [{"role": "system", "content": system_prompt}]
@@ -207,13 +210,16 @@ def chat_stream(
     # 搜尋用戶文件的相關段落
     user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
     user_doc_ids = [doc.id for doc in user_docs]
-    relevant_docs = search_documents(chat_request.content, user_doc_ids)
+    relevant_docs = hybrid_search(chat_request.content, user_doc_ids)
 
     # 組成 system prompt
     system_prompt = "你是一個友善的助手，用繁體中文回答"
     if relevant_docs:
-        context = "\n\n".join(relevant_docs)
-        system_prompt += f"\n\n根據以下資料回答問題，如果資料中有答案請優先使用：\n{context}"
+        context = "\n\n".join([
+            f"[來源：{d['filename']}]\n{d['content']}"
+            for d in relevant_docs
+        ])
+        system_prompt += f"\n\n根據以下資料回答問題，如果資料中有答案請優先使用，並告知來源：\n{context}"
 
     # 組成 messages
     messages = [{"role": "system", "content": system_prompt}]

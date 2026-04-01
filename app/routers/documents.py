@@ -29,7 +29,7 @@ async def upload_document(
     db.commit()
     db.refresh(document)
 
-    add_document(document.id, text)
+    add_document(document.id, text, document.filename)
 
     return document
 
