@@ -6,7 +6,7 @@ client = TestClient(app)
 # 測試註冊成功
 def test_register_success():
     response = client.post("/auth/register", json={
-        "email": "brand_news@test.com",
+        "email": "brand_newsssss@test.com",
         "password": "testpassword123"
     })
     assert response.status_code == 201
