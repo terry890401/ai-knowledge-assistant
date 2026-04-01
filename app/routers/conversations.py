@@ -122,6 +122,8 @@ def chat(
 
     # 取得對話歷史
     history = db.query(Message).filter(Message.conversation_id == conversation_id).all()
+    history = history[-10:]
+    
 
     # 搜尋用戶文件的相關段落
     user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
@@ -199,6 +201,8 @@ def chat_stream(
         conversation.title = title_response.choices[0].message.content
         db.add(conversation)
         db.commit()
+    
+    history = history[-10:]
 
     # 搜尋用戶文件的相關段落
     user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
