@@ -2,13 +2,40 @@
 
 一個結合 RAG 技術的 AI 知識庫助手，支援多輪對話、文件上傳和串流輸出。
 
+🚀 **Live Demo**: [https://ai-knowledge-assistant-production-815b.up.railway.app](https://ai-knowledge-assistant-production-815b.up.railway.app)
+
 ## 功能
 
 - **JWT 認證**：註冊、登入、token 驗證
 - **多輪對話**：對話記錄存入 PostgreSQL，支援歷史查詢
 - **Streaming 輸出**：逐字輸出，像 ChatGPT 一樣的使用體驗
 - **RAG 知識庫**：上傳文件（txt/pdf），AI 根據文件內容回答問題
-- **向量搜尋**：使用 Chroma 向量資料庫 + OpenAI Embedding
+- **Hybrid Search**：結合向量搜尋和 BM25 關鍵字搜尋，提升召回準確率
+- **文件來源顯示**：AI 回答時標示資料來源的文件名稱
+- **Prompt 管理**：自訂 AI 角色和行為，存入資料庫動態切換
+- **Sliding Window**：自動控制對話 token 用量，保留最近 10 則訊息
+- **Rate Limiting**：每分鐘最多 20 次聊天請求，防止濫用
+- **健康檢查**：`/health` API 確認服務和資料庫狀態
+
+## 系統架構
+
+```
+請求流程：
+Client
+  │
+  ▼
+FastAPI（CORS + Logging + Rate Limiting）
+  │
+  ├── PostgreSQL（用戶、對話、訊息、文件、Prompt）
+  │
+  ├── Chroma Cloud（文件向量 + Hybrid Search）
+  │
+  └── OpenAI GPT-4o-mini（對話生成 + Embedding）
+
+監控：LangSmith（追蹤每次 LLM 呼叫）
+部署：Docker + Railway
+CI/CD：GitHub Actions（自動測試 + 自動部署）
+```
 
 ## 技術架構
 
@@ -16,30 +43,47 @@
 |------|------|
 | 後端框架 | FastAPI |
 | 資料庫 | PostgreSQL + SQLAlchemy ORM |
-| 向量資料庫 | Chroma |
+| 資料庫遷移 | Alembic |
+| 向量資料庫 | Chroma Cloud |
 | AI 模型 | OpenAI GPT-4o-mini |
 | Embedding | OpenAI text-embedding-3-small |
+| 搜尋 | Hybrid Search（向量 + BM25） |
 | 認證 | JWT (python-jose) |
 | 密碼加密 | bcrypt (passlib) |
+| Rate Limiting | slowapi |
+| 監控 | LangSmith |
+| 日誌 | Python logging + Middleware |
+| 測試 | pytest + FastAPI TestClient |
+| 部署 | Docker + Railway |
+| CI/CD | GitHub Actions |
 
 ## 專案結構
 
 ```
 ai-knowledge-assistant/
 ├── app/
-│   ├── main.py          # FastAPI 入口
+│   ├── main.py          # FastAPI 入口、CORS、Logging、Rate Limiting
 │   ├── database.py      # 資料庫連線設定
 │   ├── models.py        # SQLAlchemy 資料表
 │   ├── schemas.py       # Pydantic 資料格式
 │   ├── dependencies.py  # JWT 驗證
-│   ├── vector_store.py  # Chroma 向量資料庫操作
+│   ├── vector_store.py  # Chroma 向量資料庫操作、Hybrid Search
 │   ├── static/
 │   │   └── index.html   # 前端 Demo 頁面
 │   └── routers/
 │       ├── auth.py          # 認證 API
-│       ├── conversations.py # 對話 API
-│       └── documents.py     # 文件 API
-├── .env
+│       ├── conversations.py # 對話 API + 聊天 + Streaming + RAG
+│       ├── documents.py     # 文件 API
+│       └── prompts.py       # Prompt 管理 API
+├── alembic/             # 資料庫遷移檔案
+├── tests/               # pytest 測試
+│   ├── test_auth.py
+│   ├── test_conversations.py
+│   └── test_documents.py
+├── .github/workflows/   # CI/CD
+│   └── ci.yml
+├── Dockerfile
+├── .env.example
 └── requirements.txt
 ```
 
@@ -60,17 +104,10 @@ pip install -r requirements.txt
 
 ### 3. 設定環境變數
 
-建立 `.env` 檔案：
+複製 `.env.example` 為 `.env` 並填入實際的值：
 
 ```bash
-DATABASE_URL=postgresql://postgres:你的密碼@localhost:5432/ai_assistant
-SECRET_KEY=你的隨機字串
-OPENAI_API_KEY=你的OpenAI金鑰
-```
-
-產生 SECRET_KEY：
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
+cp .env.example .env
 ```
 
 ### 4. 建立資料庫
@@ -81,7 +118,13 @@ python -c "import secrets; print(secrets.token_hex(32))"
 CREATE DATABASE ai_assistant;
 ```
 
-### 5. 啟動伺服器
+### 5. 執行資料庫遷移
+
+```bash
+alembic upgrade head
+```
+
+### 6. 啟動伺服器
 
 ```bash
 uvicorn app.main:app --reload
@@ -102,6 +145,12 @@ http://localhost:8000
 http://localhost:8000/docs
 ```
 
+### 健康檢查
+
+```
+http://localhost:8000/health
+```
+
 ## API 路由
 
 ### 認證
@@ -119,11 +168,34 @@ http://localhost:8000/docs
 | GET | `/conversations/{id}` | 取得單一對話（含訊息） |
 | DELETE | `/conversations/{id}` | 刪除對話 |
 | POST | `/conversations/{id}/chat` | 聊天 |
-| POST | `/conversations/{id}/chat/stream` | 串流聊天 |
+| POST | `/conversations/{id}/chat/stream` | 串流聊天（Rate Limited） |
 
 ### 文件
 | 方法 | 路徑 | 說明 |
 |------|------|------|
 | GET | `/documents/` | 取得文件列表 |
-| POST | `/documents/` | 上傳文件 |
+| POST | `/documents/` | 上傳文件（txt/pdf） |
 | DELETE | `/documents/{id}` | 刪除文件 |
+
+### Prompt 管理
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/prompts/` | 取得所有 Prompt |
+| POST | `/prompts/` | 新增 Prompt |
+| DELETE | `/prompts/{id}` | 刪除 Prompt |
+
+## 測試
+
+```bash
+pytest tests/ -v
+```
+
+## Docker
+
+```bash
+# 建立 image
+docker build -t ai-knowledge-assistant .
+
+# 執行容器
+docker run -p 8000:8000 --env-file .env ai-knowledge-assistant
+```
