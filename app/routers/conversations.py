@@ -10,11 +10,12 @@ from app.vector_store import search_documents, hybrid_search
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = wrap_openai(OpenAI(api_key=os.getenv("OPENAI_API_KEY")))
 
 router = APIRouter(prefix="/conversations", tags=["對話"])
 limiter = Limiter(key_func=get_remote_address)
