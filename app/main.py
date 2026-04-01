@@ -8,6 +8,7 @@ from app.routers import auth, conversations, documents, prompts
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 import logging
 import time
 
@@ -54,3 +55,31 @@ Base.metadata.create_all(bind=engine)
 async def read_index():
     with open("app/static/index.html", encoding="utf-8") as f:
         return f.read()
+    
+@app.get("/health")
+def health_check():
+    health = {
+        "status": "healthy",
+        "database": "unknown",
+        "chroma": "unknown"
+    }
+    
+    # 檢查資料庫
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health["database"] = "connected"
+    except Exception as e:
+        health["database"] = "disconnected"
+        health["status"] = "unhealthy"
+
+    # 檢查 Chroma
+    try:
+        from app.vector_store import collection
+        collection.count()
+        health["chroma"] = "connected"
+    except Exception as e:
+        health["chroma"] = "disconnected"
+        health["status"] = "unhealthy"
+
+    return health
