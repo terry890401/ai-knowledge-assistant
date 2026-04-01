@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine
 from app.models import Base
-from app.routers import auth, conversations,documents
+from app.routers import auth, conversations, documents, prompts
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -45,6 +45,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(auth.router)
 app.include_router(conversations.router)
 app.include_router(documents.router)
+app.include_router(prompts.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 Base.metadata.create_all(bind=engine)

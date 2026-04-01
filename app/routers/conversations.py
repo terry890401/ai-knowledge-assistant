@@ -5,7 +5,7 @@ from app.schemas import ConversationCreate, ConversationResponse, ConversationDe
 from app.database import get_db
 from app.dependencies import get_current_user
 from app import models
-from app.models import Conversation, Message, Document
+from app.models import Conversation, Message, Document, Prompt
 from app.vector_store import search_documents, hybrid_search
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -130,8 +130,16 @@ def chat(
     user_doc_ids = [doc.id for doc in user_docs]
     relevant_docs = hybrid_search(request.content, user_doc_ids)
 
+    # 取得用戶的預設 prompt
+    default_prompt = db.query(Prompt).filter(
+        Prompt.user_id == current_user.id,
+        Prompt.is_default == True
+    ).first()
+
+    # 用預設 prompt 或固定的 system prompt
+    system_prompt = default_prompt.content if default_prompt else "你是一個友善的助手，用繁體中文回答"
+
     # 組成 system prompt（有相關文件就加進去）
-    system_prompt = "你是一個友善的助手，用繁體中文回答"
     if relevant_docs:
         context = "\n\n".join([
             f"[來源：{d['filename']}]\n{d['content']}"
@@ -212,8 +220,16 @@ def chat_stream(
     user_doc_ids = [doc.id for doc in user_docs]
     relevant_docs = hybrid_search(chat_request.content, user_doc_ids)
 
-    # 組成 system prompt
-    system_prompt = "你是一個友善的助手，用繁體中文回答"
+    # 取得用戶的預設 prompt
+    default_prompt = db.query(Prompt).filter(
+        Prompt.user_id == current_user.id,
+        Prompt.is_default == True
+    ).first()
+
+    # 用預設 prompt 或固定的 system prompt
+    system_prompt = default_prompt.content if default_prompt else "你是一個友善的助手，用繁體中文回答"
+
+    # 組成 system prompt（有相關文件就加進去）
     if relevant_docs:
         context = "\n\n".join([
             f"[來源：{d['filename']}]\n{d['content']}"

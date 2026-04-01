@@ -65,3 +65,19 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# prompt 管理 pydantic
+class PromptCreate(BaseModel):
+    name: str
+    content: str
+    is_default: bool = False
+
+class PromptResponse(BaseModel):
+    id: int
+    name: str
+    content: str
+    is_default: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
