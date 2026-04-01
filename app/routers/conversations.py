@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.schemas import ConversationCreate, ConversationResponse, ConversationDetailResponse, ChatRequest, MessageResponse
@@ -7,6 +7,8 @@ from app.dependencies import get_current_user
 from app import models
 from app.models import Conversation, Message, Document
 from app.vector_store import search_documents
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -15,6 +17,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 router = APIRouter(prefix="/conversations", tags=["對話"])
+limiter = Limiter(key_func=get_remote_address)
 
 def generate(response, conversation_id, db):
     full_reply = ""
@@ -156,9 +159,11 @@ def chat(
 
 # 聊天 stream
 @router.post("/{conversation_id}/chat/stream")
+@limiter.limit("20/minute")
 def chat_stream(
+    request: Request,
     conversation_id: int,
-    request: ChatRequest,
+    chat_request: ChatRequest,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -172,7 +177,7 @@ def chat_stream(
     user_message = Message(
         conversation_id = conversation_id,
         role = "user",
-        content = request.content
+        content = chat_request.content
     )
     db.add(user_message)
     db.commit()
@@ -187,7 +192,7 @@ def chat_stream(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "根據這個問題產生一個簡短的對話標題，不超過 15 個字，不要標點符號"},
-                {"role": "user", "content": request.content}
+                {"role": "user", "content": chat_request.content}
             ],
             max_tokens=30
         )
@@ -198,7 +203,7 @@ def chat_stream(
     # 搜尋用戶文件的相關段落
     user_docs = db.query(Document).filter(Document.user_id == current_user.id).all()
     user_doc_ids = [doc.id for doc in user_docs]
-    relevant_docs = search_documents(request.content, user_doc_ids)
+    relevant_docs = search_documents(chat_request.content, user_doc_ids)
 
     # 組成 system prompt
     system_prompt = "你是一個友善的助手，用繁體中文回答"
