@@ -14,9 +14,11 @@ import time
 import os
 
 # LangSmith 追蹤設定
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
-os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "ai-knowledge-assistant")
+langsmith_key = os.getenv("LANGSMITH_API_KEY")
+if langsmith_key:
+    os.environ["LANGSMITH_TRACING"] = "true"
+    os.environ["LANGSMITH_API_KEY"] = langsmith_key
+    os.environ["LANGSMITH_PROJECT"] = os.getenv("LANGSMITH_PROJECT", "ai-knowledge-assistant")
 
 app = FastAPI()
 
