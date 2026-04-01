@@ -5,6 +5,8 @@ from app.dependencies import get_current_user
 from app.schemas import DocumentResponse
 from app.models import Document
 from app.vector_store import add_document, delete_document
+import io
+from pypdf import PdfReader
 
 router = APIRouter(prefix="/documents", tags=["文件"])
 
@@ -15,16 +17,20 @@ async def upload_document(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    # 讀取文件內容
     content = await file.read()
-    text = content.decode("utf-8")
+
+    # 根據檔案類型決定如何讀取
+    if file.filename.endswith(".pdf"):
+        pdf = PdfReader(io.BytesIO(content))
+        text = "\n".join([page.extract_text() for page in pdf.pages])
+    else:
+        text = content.decode("utf-8")
 
     document = Document(
-        user_id = current_user.id,
-        filename = file.filename,
-        content = text
+        user_id=current_user.id,
+        filename=file.filename,
+        content=text
     )
-
     db.add(document)
     db.commit()
     db.refresh(document)
