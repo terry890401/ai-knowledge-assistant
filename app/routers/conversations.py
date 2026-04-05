@@ -20,6 +20,27 @@ client = wrap_openai(OpenAI(api_key=os.getenv("OPENAI_API_KEY")))
 router = APIRouter(prefix="/conversations", tags=["對話"])
 limiter = Limiter(key_func=get_remote_address)
 
+# 輸入驗證
+def check_prompt_injection(content: str) -> bool:
+    suspicious_keywords = [
+        "ignore previous",
+        "忽略之前",
+        "忽略上面",
+        "system prompt",
+        "你現在是",
+        "forget your instructions",
+    ]
+    content_lower = content.lower()
+    return any(keyword in content_lower for keyword in suspicious_keywords)
+
+# 輸出驗證
+def check_output(content: str) -> bool:
+    sensitive_topics = ["炸彈", "武器", "攻擊", "爆炸物"]
+    for topic in sensitive_topics:
+        if topic in content:
+            return False
+    return True
+
 def generate(response, conversation_id, db):
     full_reply = ""
     for chunk in response:
@@ -27,6 +48,10 @@ def generate(response, conversation_id, db):
         if delta:
             full_reply += delta
             yield f"data: {delta}\n\n"
+
+    # 輸出驗證
+    if not check_output(full_reply):
+        yield "data: [WARNING] 回覆包含不適當內容\n\n"      
 
     ai_message = Message(
         conversation_id=conversation_id,
@@ -111,6 +136,8 @@ def chat(
         raise HTTPException(status_code=404, detail="找不到該對話")
     if conversation.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="無權限存取此對話")
+    if check_prompt_injection(request.content):
+        raise HTTPException(status_code=400, detail="輸入內容包含不允許的指令")
     
     user_message = Message(
         conversation_id = conversation_id,
@@ -160,6 +187,9 @@ def chat(
 
     ai_reply = response.choices[0].message.content
 
+    if not check_output(ai_reply):
+        raise HTTPException(status_code=400, detail="AI 回覆包含不適當內容")
+
     ai_message = Message(
         conversation_id = conversation_id,
         role = "assistant",
@@ -187,6 +217,8 @@ def chat_stream(
         raise HTTPException(status_code=404, detail="找不到該對話")
     if conversation.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="無權限存取此對話")
+    if check_prompt_injection(chat_request.content):
+        raise HTTPException(status_code=400, detail="輸入內容包含不允許的指令")
     
     user_message = Message(
         conversation_id = conversation_id,
