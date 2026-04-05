@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -10,9 +10,14 @@ from pypdf import PdfReader
 
 router = APIRouter(prefix="/documents", tags=["文件"])
 
+# 背景處理上傳
+def process_document(document_id: int, text: str, filename: str):
+    add_document(document_id, text, filename)
+
 # 上傳文件
 @router.post("/", response_model=DocumentResponse)
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -35,7 +40,7 @@ async def upload_document(
     db.commit()
     db.refresh(document)
 
-    add_document(document.id, text, document.filename)
+    background_tasks.add_task(process_document, document.id, text, document.filename)
 
     return document
 
