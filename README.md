@@ -2,7 +2,7 @@
 
 一個結合 RAG 技術的 AI 知識庫助手，支援多輪對話、文件上傳和串流輸出。
 
-🚀 **Live Demo**: [https://ai-knowledge-assistant-production-815b.up.railway.app](https://ai-knowledge-assistant-production-815b.up.railway.app)
+**Live Demo**: [https://ai-knowledge-assistant-production-815b.up.railway.app](https://ai-knowledge-assistant-production-815b.up.railway.app)
 
 ## 功能
 
